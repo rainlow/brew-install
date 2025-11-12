@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/env zsh
 
 # We don't need return codes for "$(command)", only stdout is needed.
 # Allow `[[ -n "$(command)" ]]`, `func "$(command)"`, pipes, etc.
@@ -14,9 +14,9 @@ abort() {
 # Fail fast with a concise message when not using bash
 # Single brackets are needed here for POSIX compatibility
 # shellcheck disable=SC2292
-if [ -z "${BASH_VERSION:-}" ]
+if [[ -z "${BASH_VERSION:-}" && -z "${ZSH_VERSION:-}" ]]
 then
-  abort "Bash is required to interpret this script."
+  abort "Bash/Zsh is required to interpret this script."
 fi
 
 # Check if script is run with force-interactive mode in CI
@@ -142,7 +142,15 @@ then
 fi
 
 # First check OS.
-OS="$(uname)"
+OHOS_MUSL_LIBC="/lib/ld-musl-aarch64.so.1"
+if [[ -f "${OHOS_MUSL_LIBC}" ]] && strings ${OHOS_MUSL_LIBC} | grep -q "OHOS"
+then
+  OS="Linux"
+  HOMEBREW_ON_OHOS=1
+else
+  abort "Harmonybrew is only supported on OpenHarmony and HarmonyOS"
+fi
+
 if [[ "${OS}" == "Linux" ]]
 then
   HOMEBREW_ON_LINUX=1
@@ -179,6 +187,22 @@ then
   GROUP="admin"
   TOUCH=("/usr/bin/touch")
   INSTALL=("/usr/bin/install" -d -o "root" -g "wheel" -m "0755")
+elif [[ -n ${HOMEBREW_ON_OHOS} ]]
+then
+  UNAME_MACHINE="$(uname -m)"
+
+  # On Linux, this script installs to /home/linuxbrew/.linuxbrew only
+  HOMEBREW_PREFIX="/opt/homebrew"
+  HOMEBREW_REPOSITORY="${HOMEBREW_PREFIX}/Homebrew"
+  HOMEBREW_CACHE="${HOME}/.cache/Homebrew"
+
+  STAT_PRINTF=("/bin/stat" "-c")
+  PERMISSION_FORMAT="%a"
+  CHOWN=("/bin/chown")
+  CHGRP=("/bin/chgrp")
+  GROUP="$(id -gn)"
+  TOUCH=("/bin/touch")
+  INSTALL=("/bin/install" -d -o "${USER}" -g "${GROUP}" -m "0755")
 else
   UNAME_MACHINE="$(uname -m)"
 
@@ -197,8 +221,8 @@ else
 fi
 CHMOD=("/bin/chmod")
 MKDIR=("/bin/mkdir" "-p")
-HOMEBREW_BREW_DEFAULT_GIT_REMOTE="https://github.com/Homebrew/brew"
-HOMEBREW_CORE_DEFAULT_GIT_REMOTE="https://github.com/Homebrew/homebrew-core"
+HOMEBREW_BREW_DEFAULT_GIT_REMOTE="https://gitcode.com/Harmonybrew/brew"
+HOMEBREW_CORE_DEFAULT_GIT_REMOTE="https://gitcode.com/Harmonybrew/homebrew-core"
 
 # Use remote URLs of Homebrew repositories from environment if set.
 HOMEBREW_BREW_GIT_REMOTE="${HOMEBREW_BREW_GIT_REMOTE:-"${HOMEBREW_BREW_DEFAULT_GIT_REMOTE}"}"
@@ -239,12 +263,12 @@ then
 fi
 
 have_sudo_access() {
-  if [[ ! -x "/usr/bin/sudo" ]]
+  if [[ ! -x "/bin/sudo" ]]
   then
     return 1
   fi
 
-  local -a SUDO=("/usr/bin/sudo")
+  local -a SUDO=("/bin/sudo")
   if [[ -n "${SUDO_ASKPASS-}" ]]
   then
     SUDO+=("-A")
@@ -306,8 +330,8 @@ execute_sudo() {
     then
       args=("-A" "${args[@]}")
     fi
-    ohai "/usr/bin/sudo" "${args[@]}"
-    execute "/usr/bin/sudo" "${args[@]}"
+    ohai "/bin/sudo" "${args[@]}"
+    execute "/bin/sudo" "${args[@]}"
   else
     ohai "${args[@]}"
     execute "${args[@]}"
@@ -360,6 +384,7 @@ version_lt() {
 }
 
 check_run_command_as_root() {
+  [[ "${HOMEBREW_ON_OHOS}" == "0" ]] || return
   [[ "${EUID:-${UID}}" == "0" ]] || return
 
   # Allow Azure Pipelines/GitHub Actions/Docker/Concourse/Kubernetes to do everything as root (as it's normal there)
@@ -453,7 +478,7 @@ test_git() {
   git_version_output="$("$1" --version 2>/dev/null)"
   if [[ "${git_version_output}" =~ "git version "([^ ]*).* ]]
   then
-    version_ge "$(major_minor "${BASH_REMATCH[1]}")" "$(major_minor "${REQUIRED_GIT_VERSION}")"
+    version_ge "$(major_minor "${BASH_REMATCH[1]:-${match[1]}}")" "$(major_minor "${REQUIRED_GIT_VERSION}")"
   else
     abort "Unexpected Git version: '${git_version_output}'!"
   fi
@@ -498,7 +523,7 @@ outdated_glibc() {
   version_lt "${glibc_version}" "${REQUIRED_GLIBC_VERSION}"
 }
 
-if [[ -n "${HOMEBREW_ON_LINUX-}" ]] && no_usable_ruby
+if [[ -n "${HOMEBREW_ON_LINUX-}" && -z "${HOMEBREW_ON_OHOS}" ]] && no_usable_ruby
 then
   if outdated_glibc
   then
@@ -517,9 +542,9 @@ EOABORT
 fi
 
 # Invalidate sudo timestamp before exiting (if it wasn't active before).
-if [[ -x /usr/bin/sudo ]] && ! /usr/bin/sudo -n -v 2>/dev/null
+if [[ -x /bin/sudo ]] && ! /bin/sudo -n -v 2>/dev/null
 then
-  trap '/usr/bin/sudo -k' EXIT
+  trap '/bin/sudo -k' EXIT
 fi
 
 # Things can fail later if `pwd` doesn't exist.
@@ -551,7 +576,7 @@ We will close any issues without response for these unsupported configurations.
 EOABORT
   )"
 fi
-HOMEBREW_CORE="${HOMEBREW_REPOSITORY}/Library/Taps/homebrew/homebrew-core"
+HOMEBREW_CORE="${HOMEBREW_REPOSITORY}/Library/Taps/harmonybrew/homebrew-core"
 
 check_run_command_as_root
 

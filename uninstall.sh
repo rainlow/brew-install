@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/env zsh
 
 # We don't need return codes for "$(command)", only stdout is needed.
 # Allow `[[ -n "$(command)" ]]`, `func "$(command)"`, pipes, etc.
@@ -14,9 +14,9 @@ abort() {
 # Fail fast with a concise message when not using bash
 # Single brackets are needed here for POSIX compatibility
 # shellcheck disable=SC2292
-if [ -z "${BASH_VERSION:-}" ]
+if [ -z "${BASH_VERSION:-}" ] && [ -z "${ZSH_VERSION:-}"]
 then
-  abort "Bash is required to interpret this script."
+  abort "Bash/Zsh is required to interpret this script."
 fi
 
 # Check if script is run in POSIX mode
@@ -51,7 +51,7 @@ mkdir -p "${tmpdir}" || abort "Unable to create temp dir '${tmpdir}'"
 trap '
   rm -fr "${tmpdir}"
   # Invalidate sudo timestamp before exiting
-  /usr/bin/sudo -k
+  /bin/sudo -k
 ' EXIT
 
 # Default options
@@ -63,11 +63,24 @@ opt_skip_cache_and_logs=""
 # global status to indicate whether there is anything wrong.
 failed=false
 
-un="$(uname)"
+# use musl libc check ohos
+ohos_musl_libc="/lib/ld-musl-aarch64.so.1"
+if [[ -f "${ohos_musl_libc}" ]] && strings ${ohos_musl_libc} | grep -q "OHOS"
+then
+  un="Linux"
+  linux_ohos=1
+else
+  abort "Harmonybrew is only supported on OpenHarmony and HarmonyOS"
+fi
+
 case "${un}" in
   Linux)
     ostype=linux
     homebrew_prefix_default=/home/linuxbrew/.linuxbrew
+    if [[ -n "${linux_ohos}" ]]
+    then
+      homebrew_prefix_default=/opt/homebrew
+    fi
     ;;
   Darwin)
     ostype=macos
@@ -102,12 +115,12 @@ tty_reset="$(tty_escape 0)"
 unset HAVE_SUDO_ACCESS # unset this from the environment
 
 have_sudo_access() {
-  if [[ ! -x "/usr/bin/sudo" ]]
+  if [[ ! -x "/bin/sudo" ]]
   then
     return 1
   fi
 
-  local -a SUDO=("/usr/bin/sudo")
+  local -a SUDO=("/bin/sudo")
   if [[ -n "${SUDO_ASKPASS-}" ]]
   then
     SUDO+=("-A")
@@ -183,8 +196,8 @@ execute_sudo() {
     then
       args=("-A" "${args[@]}")
     fi
-    ohai "/usr/bin/sudo" "${args[@]}"
-    system "/usr/bin/sudo" "${args[@]}"
+    ohai "/bin/sudo" "${args[@]}"
+    system "/bin/sudo" "${args[@]}"
   else
     ohai "${args[@]}"
     system "${args[@]}"
@@ -393,7 +406,7 @@ then
     args+=(-exec unlink '{}' ';')
   fi
   [[ -n "${opt_dry_run}" ]] && echo "Would delete:"
-  system /usr/bin/find "${args[@]}"
+  system /bin/find "${args[@]}"
 fi
 
 for file in "${homebrew_files[@]}"
@@ -429,7 +442,7 @@ then
     else
       args+=(-delete)
     fi
-    execute_sudo /usr/bin/find "${args[@]}"
+    execute_sudo /bin/find "${args[@]}"
   fi
   args=("${paths[@]}" -depth -type d -empty)
   if [[ -n "${opt_dry_run}" ]]
@@ -439,7 +452,7 @@ then
   else
     args+=(-exec rmdir '{}' ';')
   fi
-  execute_sudo /usr/bin/find "${args[@]}"
+  execute_sudo /bin/find "${args[@]}"
 fi
 
 [[ -n "${opt_dry_run}" ]] && exit
