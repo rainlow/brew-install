@@ -14,9 +14,9 @@ abort() {
 # Fail fast with a concise message when not using bash
 # Single brackets are needed here for POSIX compatibility
 # shellcheck disable=SC2292
-if [[ -z "${BASH_VERSION:-}" && -z "${ZSH_VERSION:-}" ]]
+if [[ -z "${ZSH_VERSION:-}" ]]
 then
-  abort "Bash/Zsh is required to interpret this script."
+  abort "Zsh is required to interpret this script."
 fi
 
 # Check if script is run with force-interactive mode in CI
@@ -221,7 +221,7 @@ else
 fi
 CHMOD=("/bin/chmod")
 MKDIR=("/bin/mkdir" "-p")
-HOMEBREW_BREW_DEFAULT_GIT_REMOTE="https://gitcode.com/Harmonybrew/brew"
+HOMEBREW_BREW_DEFAULT_GIT_REMOTE="https://github.com/rainlow/brew-brew"
 HOMEBREW_CORE_DEFAULT_GIT_REMOTE="https://gitcode.com/Harmonybrew/homebrew-core"
 
 # Use remote URLs of Homebrew repositories from environment if set.
@@ -263,6 +263,11 @@ then
 fi
 
 have_sudo_access() {
+  if [[ -n "${HOMEBREW_ON_OHOS}" ]]
+  then
+    return 0
+  fi
+
   if [[ ! -x "/bin/sudo" ]]
   then
     return 1
@@ -451,6 +456,11 @@ test_ruby() {
 }
 
 test_curl() {
+  if [[ -n "{HOMEBREW_ON_OHOS}" ]]
+  then
+    return 0
+  fi
+
   if [[ ! -x "$1" ]]
   then
     return 1
@@ -469,6 +479,11 @@ test_curl() {
 }
 
 test_git() {
+  if [[ -n "{HOMEBREW_ON_OHOS}" ]]
+  then
+    return 0
+  fi
+
   if [[ ! -x "$1" ]]
   then
     return 1
@@ -487,7 +502,7 @@ test_git() {
 # Search for the given executable in PATH (avoids a dependency on the `which` command)
 which() {
   # Alias to Bash built-in command `type -P`
-  type -P "$@"
+  whence -p "$@"
 }
 
 # Search PATH for the specified program that satisfies Homebrew requirements
@@ -805,7 +820,7 @@ fi
 if [[ -z "${NONINTERACTIVE-}" ]]
 then
   ring_bell
-  wait_for_user
+  #wait_for_user
 fi
 
 if [[ -d "${HOMEBREW_PREFIX}" ]]
@@ -1055,7 +1070,7 @@ ohai "Downloading and installing Homebrew..."
     PATH_WARN=1
   fi
 
-  execute "${HOMEBREW_PREFIX}/bin/brew" "update" "--force" "--quiet"
+  execute "zsh" "${HOMEBREW_PREFIX}/bin/brew" "update" "--force"
 
   if [[ -n "${PATH_WARN-}" ]]
   then
@@ -1176,8 +1191,8 @@ then
   cat <<EOS
   For more information, see:
     ${tty_underline}https://docs.brew.sh/Homebrew-on-Linux${tty_reset}
-- We recommend that you install GCC:
-    brew install gcc
+- We recommend that you install LLVM:
+    brew install llvm
 EOS
 fi
 

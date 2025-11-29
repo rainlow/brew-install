@@ -4,7 +4,7 @@
 # Allow `[[ -n "$(command)" ]]`, `func "$(command)"`, pipes, etc.
 # shellcheck disable=SC2312
 
-set -u
+set -pu
 
 abort() {
   printf "%s\n" "$@" >&2
@@ -14,9 +14,9 @@ abort() {
 # Fail fast with a concise message when not using bash
 # Single brackets are needed here for POSIX compatibility
 # shellcheck disable=SC2292
-if [ -z "${BASH_VERSION:-}" ] && [ -z "${ZSH_VERSION:-}"]
+if [[ -z "${ZSH_VERSION:-}" ]]
 then
-  abort "Bash/Zsh is required to interpret this script."
+  abort "Zsh is required to interpret this script."
 fi
 
 # Check if script is run in POSIX mode
@@ -25,7 +25,7 @@ then
   abort 'Bash must not run in POSIX mode. Please unset POSIXLY_CORRECT and try again.'
 fi
 
-shopt -s extglob
+# shopt -s extglob
 
 strip_s() {
   local s
@@ -51,7 +51,7 @@ mkdir -p "${tmpdir}" || abort "Unable to create temp dir '${tmpdir}'"
 trap '
   rm -fr "${tmpdir}"
   # Invalidate sudo timestamp before exiting
-  /bin/sudo -k
+  # /bin/sudo -k
 ' EXIT
 
 # Default options
@@ -385,7 +385,8 @@ fi
 
 if [[ -t 0 && -z "${opt_force}" && -z "${opt_dry_run}" ]]
 then
-  read -rp "Are you sure you want to uninstall Homebrew? This will remove your installed packages! [y/N] "
+  echo -n "Are you sure you want to uninstall Homebrew? This will remove your installed packages! [y/N] "
+  read -r
   [[ "${REPLY}" == [yY]* ]] || abort
 fi
 
