@@ -1111,7 +1111,7 @@ EOS
 ) || exit 1
 
 ohai "Next steps:"
-[[ -z ${SHELL} ]] && export SHELL=$(whence -p zsh)
+export SHELL=$(whence -p zsh)
 case "${SHELL}" in
   */bash*)
     if [[ -n "${HOMEBREW_ON_LINUX-}" ]]
