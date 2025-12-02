@@ -1,4 +1,4 @@
-#!/bin/env zsh
+#!/bin/zsh
 
 # We don't need return codes for "$(command)", only stdout is needed.
 # Allow `[[ -n "$(command)" ]]`, `func "$(command)"`, pipes, etc.
@@ -1111,6 +1111,7 @@ EOS
 ) || exit 1
 
 ohai "Next steps:"
+[[ -z ${SHELL} ]] && export SHELL=$(whence -p zsh)
 case "${SHELL}" in
   */bash*)
     if [[ -n "${HOMEBREW_ON_LINUX-}" ]]
