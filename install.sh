@@ -1070,7 +1070,7 @@ ohai "Downloading and installing Homebrew..."
     PATH_WARN=1
   fi
 
-  execute "zsh" "${HOMEBREW_PREFIX}/bin/brew" "update" "--force"
+  execute "zsh" "${HOMEBREW_PREFIX}/bin/brew" "update"
 
   if [[ -n "${PATH_WARN-}" ]]
   then
